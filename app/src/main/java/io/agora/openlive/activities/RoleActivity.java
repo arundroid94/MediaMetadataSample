@@ -4,15 +4,37 @@ import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.os.Handler;
+import android.util.Log;
 import android.view.View;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.RelativeLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.StringWriter;
+import java.io.UnsupportedEncodingException;
+import java.io.Writer;
+import java.util.ArrayList;
+import java.util.List;
+
 import io.agora.openlive.R;
+import io.agora.openlive.activities.pojo.Question;
 import io.agora.rtc.Constants;
 
 public class RoleActivity extends BaseActivity {
@@ -47,6 +69,8 @@ public class RoleActivity extends BaseActivity {
                 goToMainActivity();
             } else if (mRole == Constants.CLIENT_ROLE_AUDIENCE) {
                 goToAudienceListActivity();
+            } else {
+                Toast.makeText(this, "do nothing", Toast.LENGTH_SHORT).show();
             }
 
         } else {
@@ -56,20 +80,26 @@ public class RoleActivity extends BaseActivity {
 
     private void goToMainActivity() {
 
-        Intent intent = new Intent(getIntent());
+        /*Intent intent = new Intent(getIntent());
         intent.putExtra(io.agora.openlive.Constants.KEY_CLIENT_ROLE, Constants.CLIENT_ROLE_BROADCASTER);
         intent.setClass(getApplicationContext(), MainActivity.class);
-        startActivity(intent);
+        startActivity(intent);*/
 
+        Intent intent1 = new Intent(RoleActivity.this, MainActivity.class);
+        intent1.putExtra(io.agora.openlive.Constants.KEY_CLIENT_ROLE, Constants.CLIENT_ROLE_BROADCASTER);
+        startActivity(intent1);
     }
 
     private void goToAudienceListActivity() {
 
-        Intent intent = new Intent(getIntent());
+        /*Intent intent = new Intent(getIntent());
         intent.putExtra(io.agora.openlive.Constants.KEY_CLIENT_ROLE, Constants.CLIENT_ROLE_AUDIENCE);
         intent.setClass(getApplicationContext(), AudienceListActivity.class);
-        startActivity(intent);
+        startActivity(intent);*/
 
+        Intent intent = new Intent(RoleActivity.this, BroadCasterListActivity.class);
+        intent.putExtra(io.agora.openlive.Constants.KEY_CLIENT_ROLE, Constants.CLIENT_ROLE_AUDIENCE);
+        startActivity(intent);
     }
 
     private boolean permissionGranted(String permission) {
@@ -95,6 +125,8 @@ public class RoleActivity extends BaseActivity {
                     goToMainActivity();
                 } else if (mRole == Constants.CLIENT_ROLE_AUDIENCE) {
                     goToAudienceListActivity();
+                } else {
+                    Toast.makeText(this, "do nothing", Toast.LENGTH_SHORT).show();
                 }
             } else {
                 toastNeedPermissions();
@@ -142,5 +174,17 @@ public class RoleActivity extends BaseActivity {
 
     private void toastNeedPermissions() {
         Toast.makeText(this, R.string.need_necessary_permissions, Toast.LENGTH_LONG).show();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+    }
+
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        //showQuizDialog();
     }
 }

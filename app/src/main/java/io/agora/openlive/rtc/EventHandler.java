@@ -3,6 +3,7 @@ package io.agora.openlive.rtc;
 import io.agora.rtc.IRtcEngineEventHandler;
 
 public interface EventHandler {
+
     void onFirstRemoteVideoDecoded(int uid, int width, int height, int elapsed);
 
     void onLeaveChannel(IRtcEngineEventHandler.RtcStats stats);

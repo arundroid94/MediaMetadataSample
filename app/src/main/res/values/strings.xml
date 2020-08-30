@@ -6,6 +6,7 @@
     <!-- Main Activity -->
     <string name="start_broadcast_title">Start Live Broadcast</string>
     <string name="topic_edit_hint">Pick a topic to chat</string>
+    <string name="name_edit_hint">Broadcaster Name</string>
     <string name="powered_by_agora" translatable="false">Powered by agora.io</string>
     <string name="need_necessary_permissions">Necessary permissions acquired</string>
 
@@ -38,4 +39,8 @@
 
     <!-- Legal digits for channel names -->
     <string name="legal_channel_name_characters" translatable="false">&#xA0;abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!#$%&amp;()+,-:;&lt;=.>?@[]^_`{|}~</string>
+    <string name="session" translatable="false">Session</string>
+    <string name="BROADCASTER_NAME" translatable="false">broadcaster_name</string>
+    <string name="GROUP_NAME" translatable="false">group_name</string>
+    <string name="guest" translatable="false">Guest</string>
 </resources>

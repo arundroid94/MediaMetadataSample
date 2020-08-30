@@ -15,6 +15,7 @@ import io.agora.openlive.stats.StatsManager;
 import io.agora.openlive.utils.WindowUtil;
 import io.agora.rtc.IRtcEngineEventHandler;
 import io.agora.rtc.RtcEngine;
+import io.agora.rtm.RtmClient;
 
 public abstract class BaseActivity extends AppCompatActivity implements EventHandler {
     protected DisplayMetrics mDisplayMetrics = new DisplayMetrics();
@@ -67,6 +68,10 @@ public abstract class BaseActivity extends AppCompatActivity implements EventHan
 
     protected RtcEngine rtcEngine() {
         return application().rtcEngine();
+    }
+
+    protected RtmClient rtmClient() {
+        return application().rtmClient();
     }
 
     protected EngineConfig config() {

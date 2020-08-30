@@ -24,6 +24,7 @@ import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import io.agora.openlive.Constants;
 import io.agora.openlive.R;
 
 public class MainActivity extends BaseActivity {
@@ -45,6 +46,7 @@ public class MainActivity extends BaseActivity {
     private RelativeLayout mBodyLayout;
     private int mBodyDefaultMarginTop;
     private EditText mTopicEdit;
+    private EditText mNameEdit;
     private TextView mStartBtn;
     private ImageView mLogo;
 
@@ -95,6 +97,7 @@ public class MainActivity extends BaseActivity {
                 }
             };
 
+
     private void checkInputMethodWindowState() {
         getWindow().getDecorView().getRootView().getWindowVisibleDisplayFrame(mVisibleRect);
         int visibleHeight = mVisibleRect.bottom - mVisibleRect.top;
@@ -137,6 +140,8 @@ public class MainActivity extends BaseActivity {
 
         mTopicEdit = findViewById(R.id.topic_edit);
         mTopicEdit.addTextChangedListener(mTextWatcher);
+
+        mNameEdit = findViewById(R.id.name_edit);
 
         mStartBtn = findViewById(R.id.start_broadcast_button);
         if (TextUtils.isEmpty(mTopicEdit.getText())) mStartBtn.setEnabled(false);
@@ -241,9 +246,16 @@ public class MainActivity extends BaseActivity {
     }
 
     public void gotoRoleActivity() {
-        Intent intent = new Intent(MainActivity.this, RoleActivity.class);
+        Intent intent = new Intent(MainActivity.this, LiveActivity.class);
         String room = mTopicEdit.getText().toString();
         config().setChannelName(room);
+        /*if (mNameEdit.getText().toString().isEmpty()) {
+            config().setBroadcasterName(getString(R.string.guest));
+        } else {
+            config().setBroadcasterName(mNameEdit.getText().toString());
+        }*/
+        config().setBroadcasterName(mNameEdit.getText().toString().isEmpty() ? getString(R.string.guest) : mNameEdit.getText().toString());
+        intent.putExtra(io.agora.openlive.Constants.KEY_CLIENT_ROLE, io.agora.rtc.Constants.CLIENT_ROLE_BROADCASTER);
         startActivity(intent);
     }
 

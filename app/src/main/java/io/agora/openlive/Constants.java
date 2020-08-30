@@ -8,6 +8,7 @@ public class Constants {
     private static final float BEAUTY_EFFECT_DEFAULT_LIGHTNESS = 0.7f;
     private static final float BEAUTY_EFFECT_DEFAULT_SMOOTHNESS = 0.5f;
     private static final float BEAUTY_EFFECT_DEFAULT_REDNESS = 0.1f;
+    public static final int ACTIVITY_RESULT_CONN_ABORTED = 1;
 
     public static final BeautyOptions DEFAULT_BEAUTY_OPTIONS = new BeautyOptions(
             BEAUTY_EFFECT_DEFAULT_CONTRAST,

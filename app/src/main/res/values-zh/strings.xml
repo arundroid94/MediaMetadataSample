@@ -3,6 +3,7 @@
     <!-- Main Activity -->
     <string name="start_broadcast_title">开始直播</string>
     <string name="topic_edit_hint">输入一个聊天话题</string>
+    <string name="name_edit_hint">播音员姓名</string>
     <string name="need_necessary_permissions">缺少必要权限</string>
 
     <!-- Setting Activity -->

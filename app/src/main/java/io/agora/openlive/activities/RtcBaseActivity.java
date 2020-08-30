@@ -1,22 +1,25 @@
 package io.agora.openlive.activities;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.SurfaceView;
 import android.text.TextUtils;
 
 import io.agora.openlive.Constants;
 import io.agora.openlive.rtc.EventHandler;
+import io.agora.rtc.IMetadataObserver;
 import io.agora.rtc.RtcEngine;
 import io.agora.rtc.video.VideoCanvas;
 import io.agora.rtc.video.VideoEncoderConfiguration;
 import io.agora.openlive.R;
 
-public abstract class RtcBaseActivity extends BaseActivity implements EventHandler {
+public abstract class RtcBaseActivity extends BaseActivity implements EventHandler, IMetadataObserver {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         registerRtcEventHandler(this);
+        Log.i("onCreate", "-- RtcBaseActivity");
         configVideo();
         joinChannel();
     }
@@ -28,7 +31,7 @@ public abstract class RtcBaseActivity extends BaseActivity implements EventHandl
                 VideoEncoderConfiguration.STANDARD_BITRATE,
                 VideoEncoderConfiguration.ORIENTATION_MODE.ORIENTATION_MODE_FIXED_PORTRAIT
         );
-        configuration.mirrorMode = Constants.VIDEO_MIRROR_MODES[config().getMirrorEncodeIndex()];
+        //configuration.mirrorMode = Constants.VIDEO_MIRROR_MODES[config().getMirrorEncodeIndex()];
         rtcEngine().setVideoEncoderConfiguration(configuration);
     }
 
@@ -42,6 +45,7 @@ public abstract class RtcBaseActivity extends BaseActivity implements EventHandl
         if (TextUtils.isEmpty(token) || TextUtils.equals(token, "#YOUR ACCESS TOKEN#")) {
             token = null; // default, no token
         }
+        rtcEngine().registerMediaMetadataObserver(this, VIDEO_METADATA);
         rtcEngine().joinChannel(token, config().getChannelName(), "", 0);
     }
 
@@ -90,4 +94,6 @@ public abstract class RtcBaseActivity extends BaseActivity implements EventHandl
     public void onFirstRemoteVideoDecoded(int uid, int width, int height, int elapsed) {
         super.onFirstRemoteVideoDecoded(uid, width, height, elapsed);
     }
+
+
 }

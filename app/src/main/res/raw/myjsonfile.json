@@ -1,0 +1,31 @@
+{
+  "questions": [
+    {
+      "question": "What is today's day?",
+      "option_a": "A:  Monday",
+      "option_b": "B:  Tuesday",
+      "option_c": "C:  Wednesday",
+      "option_d": "D:  Thursday",
+      "count": 1,
+      "isShowQuiz": false
+    },
+    {
+      "question": "How many days do we have in a week?",
+      "option_a": "A: 7",
+      "option_b": "B: 8",
+      "option_c": "C: 6",
+      "option_d": "D: 5",
+      "count": 2,
+      "isShowQuiz": false
+    },
+    {
+      "question": "How many planets are in our solar system?",
+      "option_a": "A: Six",
+      "option_b": "B: Eight",
+      "option_c": "C: Nine",
+      "option_d": "D: Ten",
+      "count": 3,
+      "isShowQuiz": false
+    }
+  ]
+}
