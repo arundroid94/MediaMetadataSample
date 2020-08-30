@@ -1,4 +1,4 @@
-# Open Live for Android
+# Open Live with MediaMetadata for Android
 
 *English | [中文](README.zh.md)*
 
