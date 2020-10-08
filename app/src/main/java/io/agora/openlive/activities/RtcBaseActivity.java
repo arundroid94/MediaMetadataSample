@@ -1,5 +1,6 @@
 package io.agora.openlive.activities;
 
+import android.content.SyncRequest;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.SurfaceView;
@@ -9,6 +10,7 @@ import io.agora.openlive.Constants;
 import io.agora.openlive.rtc.EventHandler;
 import io.agora.rtc.IMetadataObserver;
 import io.agora.rtc.RtcEngine;
+import io.agora.rtc.live.LiveInjectStreamConfig;
 import io.agora.rtc.video.VideoCanvas;
 import io.agora.rtc.video.VideoEncoderConfiguration;
 import io.agora.openlive.R;
@@ -45,11 +47,13 @@ public abstract class RtcBaseActivity extends BaseActivity implements EventHandl
         if (TextUtils.isEmpty(token) || TextUtils.equals(token, "#YOUR ACCESS TOKEN#")) {
             token = null; // default, no token
         }
+
         rtcEngine().registerMediaMetadataObserver(this, VIDEO_METADATA);
         rtcEngine().joinChannel(token, config().getChannelName(), "", 0);
     }
 
     protected SurfaceView prepareRtcVideo(int uid, boolean local) {
+
         // Render local/remote video on a SurfaceView
 
         SurfaceView surface = RtcEngine.CreateRendererView(getApplicationContext());
@@ -75,6 +79,22 @@ public abstract class RtcBaseActivity extends BaseActivity implements EventHandl
         return surface;
     }
 
+    protected SurfaceView prepareRecordedRtcVideo(int uid, boolean local) {
+
+        // Render remote video on a SurfaceView
+
+        SurfaceView surface = RtcEngine.CreateRendererView(getApplicationContext());
+        rtcEngine().setupRemoteVideo(
+                new VideoCanvas(
+                        surface,
+                        VideoCanvas.RENDER_MODE_FIT,
+                        uid,
+                        Constants.VIDEO_MIRROR_MODES[config().getMirrorRemoteIndex()]
+                )
+        );
+        return surface;
+    }
+
     protected void removeRtcVideo(int uid, boolean local) {
         if (local) {
             rtcEngine().setupLocalVideo(null);
@@ -94,6 +114,5 @@ public abstract class RtcBaseActivity extends BaseActivity implements EventHandl
     public void onFirstRemoteVideoDecoded(int uid, int width, int height, int elapsed) {
         super.onFirstRemoteVideoDecoded(uid, width, height, elapsed);
     }
-
 
 }

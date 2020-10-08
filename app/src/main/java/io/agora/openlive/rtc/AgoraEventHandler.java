@@ -1,6 +1,7 @@
 package io.agora.openlive.rtc;
 
 import android.graphics.PixelFormat;
+import android.util.Log;
 
 import java.util.ArrayList;
 
@@ -98,6 +99,14 @@ public class AgoraEventHandler extends IRtcEngineEventHandler {
     public void onLastmileProbeResult(IRtcEngineEventHandler.LastmileProbeResult result) {
         for (EventHandler handler : mHandler) {
             handler.onLastmileProbeResult(result);
+        }
+    }
+
+    @Override
+    public void onStreamInjectedStatus(String s, int i, int i1) {
+        Log.e("addInjectStreamUrl","onStreamInjectedStatus -- ");
+        for (EventHandler handler : mHandler) {
+            handler.onStreamInjectedStatus(s,i,i1);
         }
     }
 }

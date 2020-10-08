@@ -283,4 +283,9 @@ public abstract class BaseActivity extends AppCompatActivity implements EventHan
     public void onRemoteAudioStats(IRtcEngineEventHandler.RemoteAudioStats stats) {
 
     }
+
+    @Override
+    public void onStreamInjectedStatus(String s, int i, int i1) {
+
+    }
 }

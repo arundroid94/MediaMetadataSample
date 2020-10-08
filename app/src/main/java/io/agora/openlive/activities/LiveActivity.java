@@ -6,10 +6,12 @@ import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.Handler;
+import android.text.format.DateFormat;
 import android.util.Log;
 import android.view.SurfaceView;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -17,6 +19,8 @@ import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.core.graphics.drawable.RoundedBitmapDrawable;
 import androidx.core.graphics.drawable.RoundedBitmapDrawableFactory;
+
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -34,18 +38,28 @@ import java.io.Reader;
 import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
 import java.io.Writer;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.Period;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 import io.agora.openlive.R;
-import io.agora.openlive.activities.pojo.Question;
+import io.agora.openlive.pojo.Question;
 import io.agora.openlive.stats.LocalStatsData;
 import io.agora.openlive.stats.RemoteStatsData;
 import io.agora.openlive.stats.StatsData;
 import io.agora.openlive.ui.VideoGridContainer;
 import io.agora.rtc.Constants;
 import io.agora.rtc.IRtcEngineEventHandler;
+import io.agora.rtc.live.LiveInjectStreamConfig;
+import io.agora.rtc.live.LiveTranscoding;
+import io.agora.rtc.video.VideoCanvas;
 import io.agora.rtc.video.VideoEncoderConfiguration;
 import io.agora.rtm.ChannelAttributeOptions;
 import io.agora.rtm.ErrorInfo;
@@ -55,6 +69,9 @@ import io.agora.rtm.RtmChannelAttribute;
 import io.agora.rtm.RtmChannelListener;
 import io.agora.rtm.RtmChannelMember;
 import io.agora.rtm.RtmMessage;
+
+import static io.agora.rtc.live.LiveTranscoding.AudioSampleRateType.TYPE_44100;
+import static io.agora.rtc.live.LiveTranscoding.VideoCodecProfileType.HIGH;
 
 public class LiveActivity extends RtcBaseActivity {
     private static final String TAG = LiveActivity.class.getSimpleName();
@@ -66,17 +83,29 @@ public class LiveActivity extends RtcBaseActivity {
 
     private VideoEncoderConfiguration.VideoDimensions mVideoDimension;
     private RtmChannel mRtmChannel;
-    boolean isBroadcaster;
+    private RtmChannel mRtmAudienceChannel;
+    boolean isBroadcaster = false;
     private String mChannelAttributeKey;
     List<Question> questionArrayList = new ArrayList<>();
     private boolean isStartQuiz = false;
     private AlertDialog dialog;
+    private AlertDialog dialog_broadcaster;
     private int isCount = -1;
     private int TOTAL_TIME = 90000;
     private int INTERVAL = 30000;
+    private boolean isRecorded = false;
+    CountDownTimer timer;
 
     Question question = new Question();
     final Handler handler = new Handler();
+    private boolean isAnswered = false;
+    private boolean isWaiting = false;
+    private boolean isTimeSet = true;
+    private LinearLayout mBeginTimeRl;
+    private TextView mBeginTimeTv;
+    private TextView mBeginTimeContentTv;
+
+    int itemSelected = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -94,6 +123,7 @@ public class LiveActivity extends RtcBaseActivity {
             config().setSessionName(getString(R.string.session));
             joinChannel();
         }
+        joinAudienceChannel();
     }
 
     private void initUI() {
@@ -111,12 +141,17 @@ public class LiveActivity extends RtcBaseActivity {
                 io.agora.openlive.Constants.KEY_CLIENT_ROLE,
                 Constants.CLIENT_ROLE_AUDIENCE);
         isBroadcaster = (role == Constants.CLIENT_ROLE_BROADCASTER);
+        isRecorded = getIntent().getBooleanExtra("isRecorded", false);
 
         mStartQuizRl = findViewById(R.id.start_quiz_rl);
+        mBeginTimeRl = findViewById(R.id.begin_time_rl);
+        mBeginTimeTv = findViewById(R.id.beginTimeTv);
+        mBeginTimeContentTv = findViewById(R.id.begin_Time_ContentTv);
         mMuteVideoBtn = findViewById(R.id.live_btn_mute_video);
         mMuteVideoBtn.setActivated(isBroadcaster);
         mMuteAudioBtn = findViewById(R.id.live_btn_mute_audio);
         mMuteAudioBtn.setActivated(isBroadcaster);
+
 
         ImageView beautyBtn = findViewById(R.id.live_btn_beautification);
         beautyBtn.setActivated(true);
@@ -128,7 +163,15 @@ public class LiveActivity extends RtcBaseActivity {
 
         initAgoraEngine();
         rtcEngine().setClientRole(role);
-        if (isBroadcaster) startBroadcast();
+
+        if (isBroadcaster && !isRecorded) {
+            startBroadcast();
+        } else {
+            RelativeLayout bottom_container = findViewById(R.id.bottom_container);
+            bottom_container.setVisibility(View.GONE);
+        }
+
+        //if (isBroadcaster) startBroadcast();
     }
 
     private void initUserIcon() {
@@ -169,27 +212,116 @@ public class LiveActivity extends RtcBaseActivity {
     }
 
     @Override
-    public void onJoinChannelSuccess(String channel, int uid, int elapsed) {
-        // Do nothing at the moment
+    public void onJoinChannelSuccess(String channel, final int uid, int elapsed) {
+
+        /*runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+
+                if (isBroadcaster && isRecorded) {
+
+                    String fb_url = "rtmps://live-api-s.facebook.com:443/rtmp/3655315151170641?s_bl=1&s_psm=1&s_sc=3655315207837302&s_sw=0&s_vt=api-s&a=Abx9QQkdpCjhoq_J";
+                    String youtube_url = "rtmp://a.rtmp.youtube.com/live2/528v-3bfd-qh3z-ze67-81z5";
+
+                    // CDN transcoding settings.
+                    LiveTranscoding config = new LiveTranscoding();
+                    config.audioSampleRate = TYPE_44100;
+                    config.audioChannels = 2;
+                    config.audioBitrate = 48;
+                    // Width of the video (px). The default value is 360.
+                    config.width = 360;
+                    // Height of the video (px). The default value is 640.
+                    config.height = 640;
+                    // Video bitrate of the video (Kbps). The default value is 400.
+                    config.videoBitrate = 400;
+                    // Video framerate of the video (fps). The default value is 15. Agora adjusts all values over 30 to 30.
+                    config.videoFramerate = 15;
+                    // If userCount > 1，set the layout for each user with transcodingUser.
+                    config.userCount = 1;
+                    // Video codec profile. Choose to set as Baseline (66), Main (77) or High (100). If you set this parameter to other values, Agora adjusts it to the default value 100.
+                    config.videoCodecProfile = HIGH;
+
+                    // Sets the output layout for each user.
+                    LiveTranscoding transcoding = new LiveTranscoding();
+                    LiveTranscoding.TranscodingUser user = new LiveTranscoding.TranscodingUser();
+                    // The uid must be identical to the uid used in joinChannel().
+                    user.uid = uid;
+                    transcoding.addUser(user);
+                    user.x = 0;
+                    user.audioChannel = 0;
+                    user.y = 0;
+                    user.width = 640;
+                    user.height = 720;
+
+                    Log.i("StreamTest", " ---- uid - " + uid);
+
+                    // CDN transcoding settings when using transcoding.
+                    int setLiveTranscoding = rtcEngine().setLiveTranscoding(transcoding);
+
+                    Log.i("StreamTest", " ---- setLiveTranscoding - " + setLiveTranscoding);
+
+                    // Adds a URL to which the host pushes a stream. Set the transcodingEnabled parameter as true to enable the transcoding service. Once transcoding is enabled, you need to set the live transcoding configurations by calling the setLiveTranscoding method. We do not recommend transcoding in the case of a single host.
+                    int addPublishStream = rtcEngine().addPublishStreamUrl(fb_url, true);
+                    int addPublishStream2 = rtcEngine().addPublishStreamUrl(youtube_url, true);
+
+                    Log.i("StreamTest", " ---- addPublishStreamUrl - " + addPublishStream);
+                    Log.i("StreamTest", " ---- addPublishStreamUrl02 - " + addPublishStream2);
+
+                }
+
+            }
+        });*/
+
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (isBroadcaster && isRecorded) {
+
+                    LiveInjectStreamConfig config = new LiveInjectStreamConfig();
+                    config.width = 0;
+                    config.height = 0;
+                    config.videoGop = 30;
+                    config.videoFramerate = 15;
+                    config.videoBitrate = 400;
+                    config.videoBitrate = 400;
+                    config.audioSampleRate = LiveInjectStreamConfig.AudioSampleRateType.TYPE_48000;
+                    config.audioBitrate = 48;
+                    config.audioChannels = 1;
+
+                    final String urlPath = "http://content.jwplatform.com/manifests/vM7nH0Kl.m3u8";//working
+                    //final String urlPath = "https://agoracr.s3.ap-south-1.amazonaws.com/cloudVideo07/28b0899f20463ea4f72dfc910c633865_agoracr.m3u8";//working
+                    int a = rtcEngine().addInjectStreamUrl(urlPath, new LiveInjectStreamConfig());
+                    Log.e("addInjectStreamUrl", "-- " + a);
+                }
+            }
+        });
+
     }
 
     @Override
     public void onUserJoined(int uid, int elapsed) {
         // Do nothing at the moment
-        /*runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (isBroadcaster) {
-                    Toast.makeText(LiveActivity.this, "Joined isBroadcaster", Toast.LENGTH_SHORT).show();
-                } else {
-                    Toast.makeText(LiveActivity.this, "OnUser Audiance", Toast.LENGTH_SHORT).show();
-                }
-            }
-        });*/
+        Log.e("addInjectStreamUrl", "uid -- onUserJoined -- " + uid);
+    }
+
+    @Override
+    public void onStreamInjectedStatus(String s, final int i, int i1) {
+
+        if (isBroadcaster && isRecorded) {
+            getChannelMemberList();
+        }
+        mStartQuizRl.setVisibility(View.VISIBLE);
+
+
+        Log.e("addInjectStreamUrl", "url -- " + s);
+        Log.e("addInjectStreamUrl", "User ID. -- " + i);
+        Log.e("addInjectStreamUrl", "status -- " + i1);
+
     }
 
     @Override
     public void onUserOffline(final int uid, int reason) {
+        Log.e("addInjectStreamUrl", "uid -- onUserOffline -- " + uid);
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -200,16 +332,29 @@ public class LiveActivity extends RtcBaseActivity {
 
     @Override
     public void onFirstRemoteVideoDecoded(final int uid, int width, int height, int elapsed) {
+        Log.e("addInjectStreamUrl", "uid -- onFirstRemoteVideoDecoded -- " + uid);
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                renderRemoteUser(uid);
+                if (isRecorded) {
+                    if (uid == 666) {
+                        renderRecordedForUser(uid);
+                    }
+                } else {
+                    renderRemoteUser(uid);
+                }
+                //renderRemoteUser(uid);
             }
         });
     }
 
     private void renderRemoteUser(int uid) {
         SurfaceView surface = prepareRtcVideo(uid, false);
+        mVideoGridContainer.addUserVideoSurface(uid, surface, false);
+    }
+
+    private void renderRecordedForUser(int uid) {
+        SurfaceView surface = prepareRecordedRtcVideo(uid, false);
         mVideoGridContainer.addUserVideoSurface(uid, surface, false);
     }
 
@@ -307,7 +452,11 @@ public class LiveActivity extends RtcBaseActivity {
     public void onBackPressed() {
 
         if (isBroadcaster) {
-            List<String> list = new ArrayList<>();
+
+            deletedChannelAttributeByKey();
+            clearCallBackAndFinish();
+
+            /*List<String> list = new ArrayList<>();
             list.add(mChannelAttributeKey);
             ResultCallback<Void> callback = new ResultCallback<Void>() {
                 @Override
@@ -323,17 +472,21 @@ public class LiveActivity extends RtcBaseActivity {
                     clearCallBackAndFinish();
                 }
             };
-            rtmClient().deleteChannelAttributesByKeys(config().getSessionName(), list, new ChannelAttributeOptions(true), callback);
-        } else {
-            finish();
-        }
+            rtmClient().deleteChannelAttributesByKeys(config().getSessionName(), list, new ChannelAttributeOptions(true), callback);*/
 
+        } else {
+            clearCallBackAndFinish();
+        }
     }
 
     public void onLeaveClicked(View view) {
 
         if (isBroadcaster) {
-            List<String> list = new ArrayList<>();
+
+            deletedChannelAttributeByKey();
+            clearCallBackAndFinish();
+
+            /*List<String> list = new ArrayList<>();
             list.add(mChannelAttributeKey);
             ResultCallback<Void> callback = new ResultCallback<Void>() {
                 @Override
@@ -349,9 +502,10 @@ public class LiveActivity extends RtcBaseActivity {
                     clearCallBackAndFinish();
                 }
             };
-            rtmClient().deleteChannelAttributesByKeys(config().getSessionName(), list, new ChannelAttributeOptions(true), callback);
+            rtmClient().deleteChannelAttributesByKeys(config().getSessionName(), list, new ChannelAttributeOptions(true), callback);*/
+
         } else {
-            finish();
+            clearCallBackAndFinish();
         }
     }
 
@@ -381,6 +535,11 @@ public class LiveActivity extends RtcBaseActivity {
     }
 
     public void onMuteVideoClicked(View view) {
+
+        if (isRecorded) {
+            return;
+        }
+
         if (view.isActivated()) {
             stopBroadcast();
         } else {
@@ -392,7 +551,7 @@ public class LiveActivity extends RtcBaseActivity {
     public void startQuizOnClick(View view) {
 
         String[] singleChoiceItems = {" 30 Seconds ", " 1 minute ", " 2 minutes "};
-        final int itemSelected = 0;
+        itemSelected = 0;
         TOTAL_TIME = 90000;
         INTERVAL = 30000;
         new AlertDialog.Builder(this)
@@ -404,12 +563,15 @@ public class LiveActivity extends RtcBaseActivity {
                         if (selectedIndex == 0) {
                             TOTAL_TIME = 90000;
                             INTERVAL = 30000;
+                            itemSelected = 0;
                         } else if (selectedIndex == 1) {
                             TOTAL_TIME = 180000;
                             INTERVAL = 60000;
+                            itemSelected = 1;
                         } else {
                             TOTAL_TIME = 360000;
                             INTERVAL = 120000;
+                            itemSelected = 2;
                         }
 
                     }
@@ -417,9 +579,58 @@ public class LiveActivity extends RtcBaseActivity {
                 .setPositiveButton("Start", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        startQuizTimer(TOTAL_TIME, INTERVAL);
+
                         mStartQuizRl.setVisibility(View.GONE);
                         dialog.dismiss();
+
+                        if (itemSelected == 0) {
+                            forThirtySec();
+                        } else if (itemSelected == 1) {
+                            forOneMinute();
+                        } else {
+                            forTwoMinute();
+                        }
+
+                        /*long initTime = (System.currentTimeMillis() - (io.agora.openlive.Constants.ONE_SEC)) / 1000;
+                        long a = ((System.currentTimeMillis()) + (io.agora.openlive.Constants.INTERVAL_ONE - io.agora.openlive.Constants.ONE_SEC)) / 1000;
+                        long b = ((System.currentTimeMillis()) + (io.agora.openlive.Constants.INTERVAL_TWO - io.agora.openlive.Constants.ONE_SEC)) / 1000;
+                        long c = ((System.currentTimeMillis()) + (io.agora.openlive.Constants.INTERVAL_THREE - io.agora.openlive.Constants.ONE_SEC)) / 1000;
+                        long d = ((System.currentTimeMillis()) + (50000 + io.agora.openlive.Constants.ONE_SEC)) / 1000;
+                        long e = ((System.currentTimeMillis()) + (80000 + io.agora.openlive.Constants.ONE_SEC)) / 1000;
+                        long f = ((System.currentTimeMillis()) + (110000 + io.agora.openlive.Constants.ONE_SEC)) / 1000;
+
+                        long dd = ((System.currentTimeMillis()) + (50000 - io.agora.openlive.Constants.ONE_SEC)) / 1000;
+                        long bb = ((System.currentTimeMillis()) + (io.agora.openlive.Constants.INTERVAL_TWO + io.agora.openlive.Constants.ONE_SEC)) / 1000;
+                        long ee = ((System.currentTimeMillis()) + (80000 - io.agora.openlive.Constants.ONE_SEC)) / 1000;
+                        long cc = ((System.currentTimeMillis()) + (io.agora.openlive.Constants.INTERVAL_THREE + io.agora.openlive.Constants.ONE_SEC)) / 1000;
+
+                        questionArrayList.get(0).setStartTime(a);
+                        questionArrayList.get(1).setStartTime(b);
+                        questionArrayList.get(2).setStartTime(c);
+                        questionArrayList.get(0).setEndTime(d);
+                        questionArrayList.get(1).setEndTime(e);
+                        questionArrayList.get(2).setEndTime(f);
+                        questionArrayList.get(0).setInitialTime(initTime);
+                        questionArrayList.get(0).setClosingTime(a);
+                        questionArrayList.get(1).setInitialTime(dd);
+                        questionArrayList.get(1).setClosingTime(bb);
+                        questionArrayList.get(2).setInitialTime(ee);
+                        questionArrayList.get(2).setClosingTime(cc);*/
+
+                        isWaiting = true;
+                        final Handler handler = new Handler();
+                        handler.postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+
+                                startQuizTimer(TOTAL_TIME, INTERVAL);
+
+                            }
+                        }, INTERVAL);
+
+                        /*startQuizTimer(TOTAL_TIME, INTERVAL);
+                        mStartQuizRl.setVisibility(View.GONE);
+                        dialog.dismiss();*/
                     }
                 })
                 .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
@@ -432,18 +643,151 @@ public class LiveActivity extends RtcBaseActivity {
 
     }
 
+    private void forThirtySec() {
+
+        long initTime = (System.currentTimeMillis() - (io.agora.openlive.Constants.ONE_SEC)) / 1000;
+        long a = ((System.currentTimeMillis()) + (io.agora.openlive.Constants.INTERVAL_ONE - io.agora.openlive.Constants.ONE_SEC)) / 1000;
+        long b = ((System.currentTimeMillis()) + (io.agora.openlive.Constants.INTERVAL_TWO - io.agora.openlive.Constants.ONE_SEC)) / 1000;
+        long c = ((System.currentTimeMillis()) + (io.agora.openlive.Constants.INTERVAL_THREE - io.agora.openlive.Constants.ONE_SEC)) / 1000;
+        long d = ((System.currentTimeMillis()) + (50000 + io.agora.openlive.Constants.ONE_SEC)) / 1000;
+        long e = ((System.currentTimeMillis()) + (80000 + io.agora.openlive.Constants.ONE_SEC)) / 1000;
+        long f = ((System.currentTimeMillis()) + (110000 + io.agora.openlive.Constants.ONE_SEC)) / 1000;
+
+        long dd = ((System.currentTimeMillis()) + (50000 - io.agora.openlive.Constants.ONE_SEC)) / 1000;
+        long bb = ((System.currentTimeMillis()) + (io.agora.openlive.Constants.INTERVAL_TWO + io.agora.openlive.Constants.ONE_SEC)) / 1000;
+        long ee = ((System.currentTimeMillis()) + (80000 - io.agora.openlive.Constants.ONE_SEC)) / 1000;
+        long cc = ((System.currentTimeMillis()) + (io.agora.openlive.Constants.INTERVAL_THREE + io.agora.openlive.Constants.ONE_SEC)) / 1000;
+
+        questionArrayList.get(0).setStartTime(a);
+        questionArrayList.get(1).setStartTime(b);
+        questionArrayList.get(2).setStartTime(c);
+        questionArrayList.get(0).setEndTime(d);
+        questionArrayList.get(1).setEndTime(e);
+        questionArrayList.get(2).setEndTime(f);
+        questionArrayList.get(0).setInitialTime(initTime);
+        questionArrayList.get(0).setClosingTime(a);
+        questionArrayList.get(1).setInitialTime(dd);
+        questionArrayList.get(1).setClosingTime(bb);
+        questionArrayList.get(2).setInitialTime(ee);
+        questionArrayList.get(2).setClosingTime(cc);
+
+    }
+
+    private void forOneMinute() {
+
+        long initTime = (System.currentTimeMillis() - (io.agora.openlive.Constants.ONE_SEC)) / 1000;
+        long a = ((System.currentTimeMillis()) + (io.agora.openlive.Constants.TWO_ONE - io.agora.openlive.Constants.ONE_SEC)) / 1000;
+        long b = ((System.currentTimeMillis()) + (io.agora.openlive.Constants.TWO_TWO - io.agora.openlive.Constants.ONE_SEC)) / 1000;
+        long c = ((System.currentTimeMillis()) + (io.agora.openlive.Constants.TWO_THREE - io.agora.openlive.Constants.ONE_SEC)) / 1000;
+        long d = ((System.currentTimeMillis()) + (80000 + io.agora.openlive.Constants.ONE_SEC)) / 1000;
+        long e = ((System.currentTimeMillis()) + (140000 + io.agora.openlive.Constants.ONE_SEC)) / 1000;
+        long f = ((System.currentTimeMillis()) + (200000 + io.agora.openlive.Constants.ONE_SEC)) / 1000;
+
+        long dd = ((System.currentTimeMillis()) + (80000 - io.agora.openlive.Constants.ONE_SEC)) / 1000;
+        long bb = ((System.currentTimeMillis()) + (io.agora.openlive.Constants.TWO_TWO + io.agora.openlive.Constants.ONE_SEC)) / 1000;
+        long ee = ((System.currentTimeMillis()) + (140000 - io.agora.openlive.Constants.ONE_SEC)) / 1000;
+        long cc = ((System.currentTimeMillis()) + (io.agora.openlive.Constants.TWO_THREE + io.agora.openlive.Constants.ONE_SEC)) / 1000;
+
+        questionArrayList.get(0).setStartTime(a);
+        questionArrayList.get(1).setStartTime(b);
+        questionArrayList.get(2).setStartTime(c);
+        questionArrayList.get(0).setEndTime(d);
+        questionArrayList.get(1).setEndTime(e);
+        questionArrayList.get(2).setEndTime(f);
+        questionArrayList.get(0).setInitialTime(initTime);
+        questionArrayList.get(0).setClosingTime(a);
+        questionArrayList.get(1).setInitialTime(dd);
+        questionArrayList.get(1).setClosingTime(bb);
+        questionArrayList.get(2).setInitialTime(ee);
+        questionArrayList.get(2).setClosingTime(cc);
+
+    }
+
+    private void forTwoMinute() {
+
+        long initTime = (System.currentTimeMillis() - (io.agora.openlive.Constants.ONE_SEC)) / 1000;
+        long a = ((System.currentTimeMillis()) + (io.agora.openlive.Constants.THREE_ONE - io.agora.openlive.Constants.ONE_SEC)) / 1000;
+        long b = ((System.currentTimeMillis()) + (io.agora.openlive.Constants.THREE_TWO - io.agora.openlive.Constants.ONE_SEC)) / 1000;
+        long c = ((System.currentTimeMillis()) + (io.agora.openlive.Constants.THREE_THREE - io.agora.openlive.Constants.ONE_SEC)) / 1000;
+        long d = ((System.currentTimeMillis()) + (140000 + io.agora.openlive.Constants.ONE_SEC)) / 1000;
+        long e = ((System.currentTimeMillis()) + (260000 + io.agora.openlive.Constants.ONE_SEC)) / 1000;
+        long f = ((System.currentTimeMillis()) + (380000 + io.agora.openlive.Constants.ONE_SEC)) / 1000;
+
+        long dd = ((System.currentTimeMillis()) + (140000 - io.agora.openlive.Constants.ONE_SEC)) / 1000;
+        long bb = ((System.currentTimeMillis()) + (io.agora.openlive.Constants.THREE_TWO + io.agora.openlive.Constants.ONE_SEC)) / 1000;
+        long ee = ((System.currentTimeMillis()) + (260000 - io.agora.openlive.Constants.ONE_SEC)) / 1000;
+        long cc = ((System.currentTimeMillis()) + (io.agora.openlive.Constants.THREE_THREE + io.agora.openlive.Constants.ONE_SEC)) / 1000;
+
+        questionArrayList.get(0).setStartTime(a);
+        questionArrayList.get(1).setStartTime(b);
+        questionArrayList.get(2).setStartTime(c);
+        questionArrayList.get(0).setEndTime(d);
+        questionArrayList.get(1).setEndTime(e);
+        questionArrayList.get(2).setEndTime(f);
+        questionArrayList.get(0).setInitialTime(initTime);
+        questionArrayList.get(0).setClosingTime(a);
+        questionArrayList.get(1).setInitialTime(dd);
+        questionArrayList.get(1).setClosingTime(bb);
+        questionArrayList.get(2).setInitialTime(ee);
+        questionArrayList.get(2).setClosingTime(cc);
+
+    }
+
     private void startQuizTimer(int totalTime, int interval) {
+
+        isWaiting = false;
+
         new CountDownTimer(totalTime, interval) {
 
             public void onTick(long millisUntilFinished) {
+
                 isCount = isCount + 1;
                 isStartQuiz = true;
+
+                //For Broadcaster
+               /* question.setQuestion(questionArrayList.get(isCount).getQuestion());
+                question.setCount(questionArrayList.get(isCount).getCount());
+                question.setOptionA(questionArrayList.get(isCount).getOptionA());
+                question.setOptionB(questionArrayList.get(isCount).getOptionB());
+                question.setOptionC(questionArrayList.get(isCount).getOptionC());
+                question.setOptionD(questionArrayList.get(isCount).getOptionD());
+                runOnUiThread(new Runnable() {
+                    public void run() {
+                        final Handler handler = new Handler();
+                        handler.postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                //Do something after 100ms
+                                showQuizDialog(20000);
+                            }
+                        }, 1000);
+                    }
+                });*/
+
+                if (isCount == 2) {
+
+                    handler.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    isStartQuiz = false;
+                                    isCount = -1;
+                                    mStartQuizRl.setVisibility(View.VISIBLE);
+                                }
+                            });
+                        }
+                    }, 20000);
+
+                }
+
             }
 
             public void onFinish() {
-                isStartQuiz = false;
+                /*isStartQuiz = false;
                 isCount = -1;
-                mStartQuizRl.setVisibility(View.VISIBLE);
+                mStartQuizRl.setVisibility(View.VISIBLE);*/
             }
 
         }.start();
@@ -453,6 +797,53 @@ public class LiveActivity extends RtcBaseActivity {
     /**
      * API CALLBACK: rtm channel event listener
      */
+    class MyAudienceChannelListener implements RtmChannelListener {
+        @Override
+        public void onMemberCountUpdated(int i) {
+
+        }
+
+        @Override
+        public void onAttributesUpdated(List<RtmChannelAttribute> list) {
+
+        }
+
+        @Override
+        public void onMessageReceived(final RtmMessage message, final RtmChannelMember fromMember) {
+
+        }
+
+        @Override
+        public void onMemberJoined(final RtmChannelMember member) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Log.i("isBroadcaster", "--- >> onMemberJoined --->>  " + isBroadcaster);
+                    if (isBroadcaster) {
+                        Toast.makeText(LiveActivity.this, "Remote User Joined", Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
+        }
+
+        @Override
+        public void onMemberLeft(final RtmChannelMember member) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+
+                    /*Log.i("isBroadcaster", "--- >> onMemberJoined --->>  " + member.getChannelId());
+                    if (isBroadcaster) {
+                        Toast.makeText(LiveActivity.this, "Remote User Joined", Toast.LENGTH_SHORT).show();
+                    }*/
+
+                }
+            });
+        }
+
+    }
+
+
     class MyChannelListener implements RtmChannelListener {
         @Override
         public void onMemberCountUpdated(int i) {
@@ -481,6 +872,26 @@ public class LiveActivity extends RtcBaseActivity {
 
     }
 
+    private void joinAudienceChannel() {
+        mRtmAudienceChannel = rtmClient().createChannel(getString(R.string.audience), new MyAudienceChannelListener());
+        if (mRtmAudienceChannel == null) {
+            finish();
+            return;
+        }
+        mRtmAudienceChannel.join(new ResultCallback<Void>() {
+            @Override
+            public void onSuccess(Void aVoid) {
+                Log.i("Loginissue", " --   mRtmChannel.joinAudienceChannel -- onSuccess");
+            }
+
+            @Override
+            public void onFailure(ErrorInfo errorInfo) {
+                Log.i("Loginissue", " --   mRtmChannel.joinAudienceChannel -- errorInfo");
+                Log.i("Loginissue", " --   " + errorInfo.getErrorDescription());
+            }
+        });
+    }
+
     private void joinChannel() {
 
         getQuizQuestionsData();
@@ -502,7 +913,13 @@ public class LiveActivity extends RtcBaseActivity {
 
                 Log.i("Loginissue", " --   mRtmChannel.join -- onSuccess");
                 Log.e("mRtmChannel", "onSuccess --- ");
-                getChannelMemberList();
+
+                if (isBroadcaster && !isRecorded) {
+                    getChannelMemberList();
+                }
+
+                //getChannelMemberList();
+
                 /*runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
@@ -532,6 +949,12 @@ public class LiveActivity extends RtcBaseActivity {
             mRtmChannel = null;
         }
 
+        if (mRtmAudienceChannel != null) {
+            mRtmAudienceChannel.leave(null);
+            //mRtmChannel.release();
+            mRtmAudienceChannel = null;
+        }
+
     }
 
     private void clearCallBackAndFinish() {
@@ -540,6 +963,11 @@ public class LiveActivity extends RtcBaseActivity {
             mRtmChannel.leave(null);
             //mRtmChannel.release();
             mRtmChannel = null;
+        }
+        if (mRtmAudienceChannel != null) {
+            mRtmAudienceChannel.leave(null);
+            //mRtmChannel.release();
+            mRtmAudienceChannel = null;
         }
         finish();
 
@@ -573,6 +1001,7 @@ public class LiveActivity extends RtcBaseActivity {
             public void onFailure(ErrorInfo errorInfo) {
                 Log.e(TAG, "failed to get channel members, err: " + errorInfo.getErrorCode());
                 Log.e("Loginissue", "failed to get channel members, err: " + errorInfo.getErrorCode());
+                Log.e("Loginissue", "failed to get channel members, err: " + errorInfo.getErrorDescription());
             }
         });
 
@@ -585,6 +1014,7 @@ public class LiveActivity extends RtcBaseActivity {
         try {
             jsonObject.put(getString(R.string.BROADCASTER_NAME), config().getBroadcasterName());
             jsonObject.put(getString(R.string.GROUP_NAME), config().getChannelName());
+            jsonObject.put(getString(R.string.IS_RECORDED), isRecorded);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -598,6 +1028,13 @@ public class LiveActivity extends RtcBaseActivity {
             @Override
             public void onSuccess(Void aVoid) {
                 Log.i("Loginissue", "   updateChannelAttributes -- onSuccess");
+               /* runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        joinAudienceChannel();
+                    }
+                });*/
+
             }
 
             @Override
@@ -617,6 +1054,7 @@ public class LiveActivity extends RtcBaseActivity {
         try {
             jsonObject.put(getString(R.string.BROADCASTER_NAME), config().getBroadcasterName());
             jsonObject.put(getString(R.string.GROUP_NAME), config().getChannelName());
+            jsonObject.put(getString(R.string.IS_RECORDED), isRecorded);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -630,6 +1068,12 @@ public class LiveActivity extends RtcBaseActivity {
             @Override
             public void onSuccess(Void aVoid) {
                 Log.i("Loginissue", "  setChannelAttributes -- onSuccess");
+                /*runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        joinAudienceChannel();
+                    }
+                });*/
             }
 
             @Override
@@ -731,7 +1175,13 @@ public class LiveActivity extends RtcBaseActivity {
                         object.getString("option_c"),
                         object.getString("option_d"),
                         object.getInt("count"),
-                        object.getBoolean("isShowQuiz"));
+                        object.getBoolean("isShowQuiz"),
+                        object.getLong("start_time"),
+                        object.getLong("end_time"),
+                        object.getString("q_no"),
+                        object.getBoolean("is_final"),
+                        object.getLong("initial_time"),
+                        object.getLong("closing_time"));
                 questionArrayList.add(question);
             }
 
@@ -747,19 +1197,143 @@ public class LiveActivity extends RtcBaseActivity {
 
     @Override
     public int getMaxMetadataSize() {
-        if (isBroadcaster) {
-            return 1024;
-        } else {
-            return 0;
-        }
+        return 1024;
     }
 
     @Override
     public byte[] onReadyToSendMetadata(long l) {
 
-        if (isBroadcaster && isStartQuiz && isCount >= 0) {
+        if (isStartQuiz && isCount >= 0) {
 
-            byte[] data = null;
+            long startTime = questionArrayList.get(isCount).getStartTime();
+            long endTime = questionArrayList.get(isCount).getEndTime();
+            long currentTime = (System.currentTimeMillis()) / 1000;
+            long initialTime;
+            long closingTime;
+
+            if (isCount <= 1) {
+                initialTime = questionArrayList.get(isCount + 1).getInitialTime();
+                closingTime = questionArrayList.get(isCount + 1).getClosingTime();
+            } else {
+                initialTime = questionArrayList.get(isCount).getInitialTime();
+                closingTime = questionArrayList.get(isCount).getClosingTime();
+            }
+
+            /*long initialTime = questionArrayList.get(isCount).getInitialTime();
+            long closingTime = questionArrayList.get(isCount).getClosingTime();*/
+
+            Calendar c_start = Calendar.getInstance(Locale.ENGLISH);
+            c_start.setTimeInMillis(startTime * 1000);
+            String date_start = DateFormat.format("hh:mm:ss", c_start).toString();
+
+            Calendar c_end = Calendar.getInstance(Locale.ENGLISH);
+            c_end.setTimeInMillis(endTime * 1000);
+            String date_end = DateFormat.format("hh:mm:ss", c_end).toString();
+
+            Calendar c_current = Calendar.getInstance(Locale.ENGLISH);
+            c_current.setTimeInMillis(currentTime * 1000);
+            String date_current = DateFormat.format("hh:mm:ss", c_current).toString();
+
+            Calendar c_initial = Calendar.getInstance(Locale.ENGLISH);
+            c_initial.setTimeInMillis(initialTime * 1000);
+            String date_initial = DateFormat.format("hh:mm:ss", c_initial).toString();
+
+            Calendar c_closing = Calendar.getInstance(Locale.ENGLISH);
+            c_closing.setTimeInMillis(closingTime * 1000);
+            String date_closing = DateFormat.format("hh:mm:ss", c_closing).toString();
+
+            if (c_current.getTime().after(c_start.getTime()) && c_current.getTime().before(c_end.getTime())) {
+
+                Log.i("time_con", "answer -- >> true");
+                final long seconds = getDifferenceInSeconds(date_end, date_current);
+                Log.i("time_con", "DifferenceInSeconds -- >> " + seconds);
+
+                byte[] data = null;
+                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                ObjectOutputStream oos = null;
+                try {
+                    oos = new ObjectOutputStream(bos);
+                    Question pojo = questionArrayList.get(isCount);
+                    pojo.setInitialTime(initialTime);
+                    pojo.setClosingTime(closingTime);
+                    pojo.setShowQuiz(false);
+                    oos.writeObject(pojo);
+                    oos.flush();
+                    data = bos.toByteArray();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+                if (dialog == null && !isAnswered) {
+
+                    isAnswered = true;
+
+                    runOnUiThread(new Runnable() {
+                        public void run() {
+
+                            final Handler handler = new Handler();
+                            handler.postDelayed(new Runnable() {
+                                @Override
+                                public void run() {
+                                    //Do something after 100ms
+
+                                    showQuizDialog((int) seconds);
+                                }
+                            }, 500);
+
+                        }
+                    });
+                }
+
+                //Log.i(TAG, " --- onReadyToSendMetadata -- Broadcaster");
+                return data;
+
+            } else if (c_current.getTime().after(c_initial.getTime()) && c_current.getTime().before(c_closing.getTime())) {
+
+                //Log.i("time_con", "date_closing -- >> "+date_closing);
+                //Log.i("time_con", "date_current -- >> true"+date_current);
+                final long seconds = getDifferenceInSeconds(date_closing, date_current);
+                Log.i("time_con", "DifferenceInSeconds -- >> " + seconds);
+
+
+                byte[] data = null;
+                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                ObjectOutputStream oos = null;
+                try {
+                    oos = new ObjectOutputStream(bos);
+                    Question pojo = questionArrayList.get(isCount);
+                    pojo.setShowQuiz(false);
+                    oos.writeObject(pojo);
+                    oos.flush();
+                    data = bos.toByteArray();
+                    Log.i("remaining", "showquiz -- >> " + pojo.getShowQuiz());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+
+                if (isTimeSet) {
+
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            //Log.i("remaining", "DifferenceInSeconds -- >> " + seconds);
+                            setStartTime((int) seconds, false);
+                        }
+                    });
+
+                }
+
+                return data;
+
+            } else {
+
+                Log.i("time_con", "Timer else if -- >> false");
+                return new byte[0];
+
+            }
+
+            /*byte[] data = null;
             ByteArrayOutputStream bos = new ByteArrayOutputStream();
             ObjectOutputStream oos = null;
             try {
@@ -773,16 +1347,85 @@ public class LiveActivity extends RtcBaseActivity {
                 e.printStackTrace();
             }
 
-            Log.i(TAG, " --- onReadyToSendMetadata -- Broadcaster");
-            return data;
+            //Log.i(TAG, " --- onReadyToSendMetadata -- Broadcaster");
+            return data;*/
+
+        } else if (isWaiting) {
+
+            long startTime = questionArrayList.get(0).getStartTime();
+            long endTime = questionArrayList.get(0).getEndTime();
+            long currentTime = (System.currentTimeMillis()) / 1000;
+            long initialTime = questionArrayList.get(0).getInitialTime();
+            long closingTime = questionArrayList.get(0).getClosingTime();
+
+            Calendar c_start = Calendar.getInstance(Locale.ENGLISH);
+            c_start.setTimeInMillis(startTime * 1000);
+            String date_start = DateFormat.format("hh:mm:ss", c_start).toString();
+
+            Calendar c_end = Calendar.getInstance(Locale.ENGLISH);
+            c_end.setTimeInMillis(endTime * 1000);
+            String date_end = DateFormat.format("hh:mm:ss", c_end).toString();
+
+            Calendar c_current = Calendar.getInstance(Locale.ENGLISH);
+            c_current.setTimeInMillis(currentTime * 1000);
+            String date_current = DateFormat.format("hh:mm:ss", c_current).toString();
+
+            Calendar c_initial = Calendar.getInstance(Locale.ENGLISH);
+            c_initial.setTimeInMillis(initialTime * 1000);
+            String date_initial = DateFormat.format("hh:mm:ss", c_initial).toString();
+
+            Calendar c_closing = Calendar.getInstance(Locale.ENGLISH);
+            c_closing.setTimeInMillis(closingTime * 1000);
+            String date_closing = DateFormat.format("hh:mm:ss", c_closing).toString();
+
+            if (c_current.getTime().after(c_initial.getTime()) && c_current.getTime().before(c_closing.getTime())) {
+
+                //Log.i("time_con", "date_closing -- >> "+date_closing);
+                //Log.i("time_con", "date_current -- >> true"+date_current);
+                final long seconds = getDifferenceInSeconds(date_closing, date_current);
+                Log.i("time_con", "DifferenceInSeconds -- >> " + seconds);
+
+                byte[] data = null;
+                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                ObjectOutputStream oos = null;
+                try {
+                    oos = new ObjectOutputStream(bos);
+                    Question pojo = questionArrayList.get(0);
+                    pojo.setShowQuiz(true);
+                    //pojo.setShowQuiz(true);
+                    oos.writeObject(pojo);
+                    oos.flush();
+                    data = bos.toByteArray();
+                    Log.i("remaining", "showquiz -- >> " + pojo.getShowQuiz());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+                if (isTimeSet) {
+
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            //Log.i("remaining", "DifferenceInSeconds -- >> " + seconds);
+                            setStartTime((int) seconds, true);
+                        }
+                    });
+
+                }
+
+
+                return data;
+
+            } else {
+
+                Log.i("time_con", "Timer else if -- >> false");
+                return new byte[0];
+
+            }
 
         } else {
 
-            Log.i(TAG, " --- onReadyToSendMetadata -- Audiance");
-            Log.i(TAG, " --- onReadyToSendMetadata -- isBroadcaster  -- " + isBroadcaster);
-            Log.i(TAG, " --- onReadyToSendMetadata -- isStartQuiz -- " + isStartQuiz);
-            Log.i(TAG, " --- onReadyToSendMetadata -- isCount -- " + isCount);
-
+            Log.i("time_con", "Timer else if -- >> count 0");
             return new byte[0];
         }
 
@@ -801,23 +1444,132 @@ public class LiveActivity extends RtcBaseActivity {
 
                 is = new ObjectInputStream(in);
                 Question object = (Question) is.readObject();
-                if (!object.getCount().equals(question.getCount())) {
+                question.setQuestion(object.getQuestion());
+                question.setCount(object.getCount());
+                question.setOptionA(object.getOptionA());
+                question.setOptionB(object.getOptionB());
+                question.setOptionC(object.getOptionC());
+                question.setOptionD(object.getOptionD());
+                question.setStartTime(object.getStartTime());
+                question.setEndTime(object.getEndTime());
+                question.setQuestionNumber(object.getQuestionNumber());
+                question.setLastQuestion(object.isLastQuestion());
+                question.setInitialTime(object.getInitialTime());
+                question.setClosingTime(object.getClosingTime());
+                question.setShowQuiz(object.getShowQuiz());
+
+                long startTime = question.getStartTime();
+                long endTime = question.getEndTime();
+                long initialTime = question.getInitialTime();
+                long closingTime = question.getClosingTime();
+                long currentTime = (System.currentTimeMillis()) / 1000;
+                final boolean showQuiz = question.getShowQuiz();
+
+                Calendar c_start = Calendar.getInstance(Locale.ENGLISH);
+                c_start.setTimeInMillis(startTime * 1000);
+
+                Calendar c_end = Calendar.getInstance(Locale.ENGLISH);
+                c_end.setTimeInMillis(endTime * 1000);
+                String date_end = DateFormat.format("hh:mm:ss", c_end).toString();
+
+                Calendar c_current = Calendar.getInstance(Locale.ENGLISH);
+                c_current.setTimeInMillis(currentTime * 1000);
+                String date_current = DateFormat.format("hh:mm:ss", c_current).toString();
+
+                Calendar c_initial = Calendar.getInstance(Locale.ENGLISH);
+                c_initial.setTimeInMillis(initialTime * 1000);
+
+                Calendar c_closing = Calendar.getInstance(Locale.ENGLISH);
+                c_closing.setTimeInMillis(closingTime * 1000);
+                String date_closing = DateFormat.format("hh:mm:ss", c_closing).toString();
+
+                if (c_current.getTime().after(c_start.getTime()) && c_current.getTime().before(c_end.getTime())) {
+
+                    //Log.i("time_con", "answer -- >> true");
+                    final long seconds = getDifferenceInSeconds(date_end, date_current);
+                    //Log.i("time_con", "DifferenceInSeconds -- >> " + seconds);
+                    Log.i("time_con", "DifferenceInSeconds -- >> " + seconds / 1000);
+
+                    if (dialog == null && !isAnswered) {
+                        runOnUiThread(new Runnable() {
+                            public void run() {
+
+                                isAnswered = true;
+                                showQuizDialog((int) seconds);
+
+                            }
+                        });
+                    } else {
+
+                        if (dialog != null) {
+                            Log.i("time_con", "answer -- >> not null");
+                        } else {
+                            Log.i("time_con", "answer -- >> isAnswered -- true");
+                        }
+
+                    }
+
+                } else if (c_current.getTime().after(c_initial.getTime()) && c_current.getTime().before(c_closing.getTime())) {
+
+                    //Log.i("time_con", "date_closing -- >> "+date_closing);
+                    //Log.i("time_con", "date_current -- >> true"+date_current);
+                    final long seconds = getDifferenceInSeconds(date_closing, date_current);
+                    Log.i("time_con", "DifferenceInSeconds -- >> " + seconds);
+                    if (isTimeSet) {
+
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                //Log.i("remaining", "DifferenceInSeconds -- >> " + seconds);
+
+                                /*if (question.getShowQuiz()) {
+                                    Log.i("remaining", "count 1 -- >> ");
+                                    setStartTime((int) seconds, true);
+                                } else {
+                                    Log.i("remaining", "count else -- >> -- >> " + seconds);
+                                    setStartTime((int) seconds, false);
+                                }*/
+
+                                Log.i("remaining", "showquiz -- >> " + showQuiz);
+                                setStartTime((int) seconds, showQuiz);
+
+                            }
+                        });
+
+                    }
+
+                } else {
+                    Log.i("time_con", "DifferenceInSeconds -- >>  else condition newww");
+                    //Log.i("time_con", "answer -- >> false");
+                }
+
+
+                /*if (!object.getCount().equals(question.getCount())) {
                     question.setQuestion(object.getQuestion());
                     question.setCount(object.getCount());
                     question.setOptionA(object.getOptionA());
                     question.setOptionB(object.getOptionB());
                     question.setOptionC(object.getOptionC());
                     question.setOptionD(object.getOptionD());
-                    runOnUiThread(new Runnable() {
-                        public void run() {
+                    question.setStartTime(object.getStartTime());
+                    question.setEndTime(object.getEndTime());
 
-                            showQuizDialog();
+                    if (dialog != null && dialog.isShowing()) {
 
-                        }
-                    });
+                    }else {
+                        runOnUiThread(new Runnable() {
+                            public void run() {
+
+                                showQuizDialog();
+
+                            }
+                        });
+                    }
 
 
-                }
+                }*/
+
+
                 Log.i(TAG, " --- onMetadataReceived uid --- >>>> " + object.getQuestion());
 
             } catch (IOException | ClassNotFoundException e) {
@@ -829,6 +1581,29 @@ public class LiveActivity extends RtcBaseActivity {
 
         }
 
+    }
+
+
+    private long getDifferenceInSeconds(String date_a, String date_d) {
+
+        long diffInSec = 0;
+        long diffInMs = 0;
+        SimpleDateFormat format = new SimpleDateFormat("hh:mm:ss");
+        try {
+            Date date1 = format.parse(date_a);
+            Date date2 = format.parse(date_d);
+            if (date1 != null && date2 != null) {
+                diffInMs = date1.getTime() - date2.getTime();
+            }
+
+            diffInSec = TimeUnit.MILLISECONDS.toSeconds(diffInMs);
+            //Log.i("time_con", "diffInSec -- >> " + diffInSec);
+        } catch (ParseException ex) {
+            ex.printStackTrace();
+            return 10000;
+        }
+
+        return Math.abs(diffInMs);
     }
 
     private void openQuizDialog() {
@@ -846,9 +1621,46 @@ public class LiveActivity extends RtcBaseActivity {
     }
 
 
-    public void showQuizDialog() {
+    public void showQuizDialog(final int remaining) {
 
-        dismissDialog();
+        if (isBroadcaster) {
+            question.setQuestion(questionArrayList.get(isCount).getQuestion());
+            question.setCount(questionArrayList.get(isCount).getCount());
+            question.setOptionA(questionArrayList.get(isCount).getOptionA());
+            question.setOptionB(questionArrayList.get(isCount).getOptionB());
+            question.setOptionC(questionArrayList.get(isCount).getOptionC());
+            question.setOptionD(questionArrayList.get(isCount).getOptionD());
+            question.setQuestionNumber(questionArrayList.get(isCount).getQuestionNumber());
+            question.setLastQuestion(questionArrayList.get(isCount).isLastQuestion());
+        }
+
+        if (question.isLastQuestion()) {
+
+            int time = remaining + 1000;
+
+            final Handler handler = new Handler();
+            handler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+
+                    AlertDialog alertDialog = new AlertDialog.Builder(LiveActivity.this).create();
+                    alertDialog.setTitle("kudos");
+                    alertDialog.setMessage("Quiz completed successfully");
+                    alertDialog.setButton(AlertDialog.BUTTON_POSITIVE, "GOT IT",
+                            new DialogInterface.OnClickListener() {
+                                public void onClick(DialogInterface dialog, int which) {
+                                    dialog.dismiss();
+                                }
+                            });
+                    alertDialog.show();
+
+                }
+            }, time);
+
+        }
+
+        Log.i("TAG", " --- onMetadataReceived uid --- >>>> " + "showQuizDialog -- start");
+        Log.i("TAG", " --- onMetadataReceived uid --- >>>> " + "showQuizDialog -- dismiss");
         // create an alert builder
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         // set the custom layout
@@ -856,11 +1668,14 @@ public class LiveActivity extends RtcBaseActivity {
         builder.setView(quizLayout);
         dialog = builder.create();
         // create and show the alert dialog
+        TextView questionNumberTv = (TextView) quizLayout.findViewById(R.id.questionNumberTv);
+        final TextView remainingTimeTv = (TextView) quizLayout.findViewById(R.id.remainingTimeTv);
         TextView questionTv = (TextView) quizLayout.findViewById(R.id.questionTv);
         TextView option_a = (TextView) quizLayout.findViewById(R.id.option_a);
         TextView option_b = (TextView) quizLayout.findViewById(R.id.option_b);
         TextView option_c = (TextView) quizLayout.findViewById(R.id.option_c);
         TextView option_d = (TextView) quizLayout.findViewById(R.id.option_d);
+        questionNumberTv.setText(question.getQuestionNumber());
         questionTv.setText(question.getQuestion());
         option_a.setText(question.getOptionA());
         option_b.setText(question.getOptionB());
@@ -869,39 +1684,74 @@ public class LiveActivity extends RtcBaseActivity {
         option_a.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                dismissDialog();
+
+                if (timer != null) timer.cancel();
+                if (dialog != null) dialog.hide();
             }
         });
         option_b.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
 
-                dismissDialog();
+                if (timer != null) timer.cancel();
+                if (dialog != null) dialog.hide();
             }
         });
         option_c.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                dismissDialog();
+                if (timer != null) timer.cancel();
+                if (dialog != null) dialog.hide();
             }
         });
         option_d.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                dismissDialog();
+
+                if (timer != null) timer.cancel();
+                if (dialog != null) dialog.hide();
             }
         });
         dialog.setCancelable(true);
         dialog.show();
 
-        int FIFTEEN_SEC = 10000;
+        timer = null;
+        timer = new CountDownTimer(remaining, 1000) {
+            public void onTick(long millisUntilFinished) {
+
+                Log.i("time_con", "DifferenceInSeconds -- >> " + millisUntilFinished / 1000);
+                if (remainingTimeTv != null)
+                    remainingTimeTv.setText("" + (millisUntilFinished / 1000));
+                Log.i("time_con", "DifferenceInSeconds -- >> ");
+
+            }
+
+            public void onFinish() {
+                if (remainingTimeTv != null) remainingTimeTv.setText("0");
+                if (dialog != null) {
+                    dialog.dismiss();
+                    dialog = null;
+                    Log.i("time_con", "dialog -- >> null - false");
+                }
+            }
+
+        }.start();
+
+        Log.i("TAG", " --- onMetadataReceived uid --- >>>> " + "showQuizDialog -- show");
+
+        int FIFTEEN_SEC = remaining + 3000;
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
+
+                isAnswered = false;
                 // Do something after x seconds
-                if (dialog != null && dialog.isShowing()) {
+                if (dialog != null) {
                     dialog.dismiss();
                     dialog = null;
+                    isAnswered = false;
+                    Log.i("time_con", "dialog -- >> null - false");
+
                 } else {
                     if (handler != null) {
                         handler.removeCallbacksAndMessages(null);
@@ -913,11 +1763,60 @@ public class LiveActivity extends RtcBaseActivity {
 
     }
 
-    private void dismissDialog() {
-        if (dialog != null && dialog.isShowing()) {
-            dialog.dismiss();
-            dialog = null;
-        }
+    /*void setRemainingTime(int totalTime) {
+
+        Log.i("remaining", " -- >> " + totalTime);
+        isTimeSet = false;
+        mRemainingTimeRl.setVisibility(View.VISIBLE);
+
+        new CountDownTimer(totalTime, 1000) {
+
+            @Override
+            public void onTick(long millisUntilFinished) {
+
+                mTimeLeftTv.setText("" + millisUntilFinished / 1000);
+                Log.i("remaining", "01 -- >> " + millisUntilFinished / 1000);
+                Log.i("remaining", "02 -- >> running");
+
+
+            }
+
+            @Override
+            public void onFinish() {
+                mTimeLeftTv.setText("0");
+                mRemainingTimeRl.setVisibility(View.GONE);
+                isTimeSet = true;
+                Log.i("remaining", "03 -- >> finished");
+            }
+        }.start();
+
+    }*/
+
+    void setStartTime(int totalTime, boolean isBegin) {
+
+        mBeginTimeContentTv.setText(isBegin ? getString(R.string.begin_in) : getString(R.string.next_in));
+
+        isTimeSet = false;
+        mBeginTimeRl.setVisibility(View.VISIBLE);
+
+        new CountDownTimer(totalTime, 1000) {
+
+            @Override
+            public void onTick(long millisUntilFinished) {
+
+                mBeginTimeTv.setText("" + millisUntilFinished / 1000);
+
+            }
+
+            @Override
+            public void onFinish() {
+                mBeginTimeTv.setText("0");
+                mBeginTimeRl.setVisibility(View.GONE);
+                isTimeSet = true;
+            }
+
+        }.start();
+
     }
 
 }

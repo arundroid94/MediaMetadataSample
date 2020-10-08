@@ -4,10 +4,10 @@
     <string name="app_name" translatable="false">Open Live Metadata</string>
 
     <!-- Main Activity -->
-    <string name="start_broadcast_title">Start Live Broadcast</string>
+    <string name="start_broadcast_title">Start Broadcast</string>
     <string name="topic_edit_hint">Pick a topic to chat</string>
     <string name="name_edit_hint">Broadcaster Name</string>
-    <string name="powered_by_agora" translatable="false">Powered by agora.io</string>
+    <string name="powered_by_agora" translatable="false">Powered by Agora</string>
     <string name="need_necessary_permissions">Necessary permissions acquired</string>
 
     <!-- Setting Activity -->
@@ -40,7 +40,11 @@
     <!-- Legal digits for channel names -->
     <string name="legal_channel_name_characters" translatable="false">&#xA0;abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!#$%&amp;()+,-:;&lt;=.>?@[]^_`{|}~</string>
     <string name="session" translatable="false">Session</string>
+    <string name="audience" translatable="false">Audience</string>
     <string name="BROADCASTER_NAME" translatable="false">broadcaster_name</string>
     <string name="GROUP_NAME" translatable="false">group_name</string>
+    <string name="IS_RECORDED" translatable="false">is_recorded</string>
     <string name="guest" translatable="false">Guest</string>
+    <string name="begin_in" translatable="false">The quiz is about to begin in</string>
+    <string name="next_in" translatable="false">Next Question in</string>
 </resources>

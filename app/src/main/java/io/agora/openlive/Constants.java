@@ -10,6 +10,26 @@ public class Constants {
     private static final float BEAUTY_EFFECT_DEFAULT_REDNESS = 0.1f;
     public static final int ACTIVITY_RESULT_CONN_ABORTED = 1;
 
+    public static final int TOTAL_TIME_ONE = 1;
+    public static final int TOTAL_TIME_TWO = 1;
+    public static final int TOTAL_TIME_THREE = 1;
+    public static final int INTERVAL_ONE = 30000;
+    public static final int INTERVAL_TWO = 60000;
+    public static final int INTERVAL_THREE = 90000;
+    public static final int ONE_SEC = 1000;
+    public static final int ONE_HALF = 1500;
+    public static final int TWO_SEC = 2000;
+    //public static final int THREE_SEC = 3000;
+    public static final int THREE_SEC = 3000;
+
+    public static final int TWO_ONE = 60000;
+    public static final int TWO_TWO = 120000;
+    public static final int TWO_THREE = 180000;
+
+    public static final int THREE_ONE = 120000;
+    public static final int THREE_TWO = 240000;
+    public static final int THREE_THREE = 360000;
+
     public static final BeautyOptions DEFAULT_BEAUTY_OPTIONS = new BeautyOptions(
             BEAUTY_EFFECT_DEFAULT_CONTRAST,
             BEAUTY_EFFECT_DEFAULT_LIGHTNESS,

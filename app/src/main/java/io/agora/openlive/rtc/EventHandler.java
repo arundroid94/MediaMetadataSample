@@ -28,4 +28,6 @@ public interface EventHandler {
 
     void onRemoteAudioStats(IRtcEngineEventHandler.RemoteAudioStats stats);
 
+    void onStreamInjectedStatus(String s, int i, int i1);
+
 }

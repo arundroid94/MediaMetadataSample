@@ -47,7 +47,6 @@
                 <TextView
                     android:id="@+id/select_role_arrow_broadcaster"
                     style="@style/select_role_block_arrow"/>
-
                 <TextView
                     android:id="@+id/select_role_title_broadcaster"
                     style="@style/select_role_block_title"
@@ -77,6 +76,7 @@
             <RelativeLayout
                 style="@style/select_role_block_content">
                 <TextView
+                    android:layout_width="30dp"
                     android:id="@+id/select_role_arrow_audience"
                     style="@style/select_role_block_arrow"/>
                 <TextView

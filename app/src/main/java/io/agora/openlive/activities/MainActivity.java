@@ -21,6 +21,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
@@ -235,7 +236,8 @@ public class MainActivity extends BaseActivity {
 
     private void resetLayoutAndForward() {
         closeImeDialogIfNeeded();
-        gotoRoleActivity();
+        //gotoRoleActivity();
+        showAlertDialogButtonClicked();
     }
 
     private void closeImeDialogIfNeeded() {
@@ -245,17 +247,13 @@ public class MainActivity extends BaseActivity {
                 InputMethodManager.HIDE_NOT_ALWAYS);
     }
 
-    public void gotoRoleActivity() {
+    public void gotoRoleActivity(boolean isRecorded) {
         Intent intent = new Intent(MainActivity.this, LiveActivity.class);
         String room = mTopicEdit.getText().toString();
         config().setChannelName(room);
-        /*if (mNameEdit.getText().toString().isEmpty()) {
-            config().setBroadcasterName(getString(R.string.guest));
-        } else {
-            config().setBroadcasterName(mNameEdit.getText().toString());
-        }*/
         config().setBroadcasterName(mNameEdit.getText().toString().isEmpty() ? getString(R.string.guest) : mNameEdit.getText().toString());
         intent.putExtra(io.agora.openlive.Constants.KEY_CLIENT_ROLE, io.agora.rtc.Constants.CLIENT_ROLE_BROADCASTER);
+        intent.putExtra("isRecorded", isRecorded);
         startActivity(intent);
     }
 
@@ -295,5 +293,32 @@ public class MainActivity extends BaseActivity {
     private void removeLayoutObserverForSoftKeyboard() {
         View view = getWindow().getDecorView().getRootView();
         view.getViewTreeObserver().removeOnGlobalLayoutListener(mLayoutObserverListener);
+    }
+
+
+    public void showAlertDialogButtonClicked() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        final View customLayout = getLayoutInflater().inflate(R.layout.custom_selection_screen, null);
+        builder.setView(customLayout);
+        final AlertDialog dialog = builder.create();
+        customLayout.findViewById(R.id.live_cv).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                dialog.dismiss();
+                gotoRoleActivity(false);
+            }
+        });
+
+        customLayout.findViewById(R.id.recorded_cv).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                dialog.dismiss();
+                gotoRoleActivity(true);
+
+            }
+        });
+
+
+        dialog.show();
     }
 }

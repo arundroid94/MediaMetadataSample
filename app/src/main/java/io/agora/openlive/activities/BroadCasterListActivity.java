@@ -122,7 +122,8 @@ public class BroadCasterListActivity extends BaseActivity {
                         JSONObject jsonObject = new JSONObject(data.getValue());
                         String c_name = jsonObject.get(getString(R.string.GROUP_NAME)).toString();
                         String b_name = jsonObject.get(getString(R.string.BROADCASTER_NAME)).toString();
-                        ChannelModel channelModel = new ChannelModel(c_name, b_name);
+                        boolean is_recorded = jsonObject.getBoolean(getString(R.string.IS_RECORDED));
+                        ChannelModel channelModel = new ChannelModel(c_name, b_name, is_recorded);
                         updatedList.add(channelModel);
                         Log.i("Attributes", " values -- " + c_name);
                         Log.i("Attributes", " values -- " + b_name);
@@ -386,7 +387,8 @@ public class BroadCasterListActivity extends BaseActivity {
                             JSONObject jsonObject = new JSONObject(data.getValue());
                             String c_name = jsonObject.get(getString(R.string.GROUP_NAME)).toString();
                             String b_name = jsonObject.get(getString(R.string.BROADCASTER_NAME)).toString();
-                            ChannelModel channelModel = new ChannelModel(c_name, b_name);
+                            boolean is_recorded = jsonObject.getBoolean(getString(R.string.IS_RECORDED));
+                            ChannelModel channelModel = new ChannelModel(c_name, b_name, is_recorded);
                             list.add(channelModel);
                             Log.i("Attributes", " values -- " + c_name);
                             Log.i("Attributes", " values -- " + b_name);
@@ -428,6 +430,7 @@ public class BroadCasterListActivity extends BaseActivity {
     public class ChannelListAdapter extends RecyclerView.Adapter<ChannelListAdapter.MyViewHolder> {
 
         List<ChannelModel> chanelList;
+
         public ChannelListAdapter(List<ChannelModel> data) {
             this.chanelList = data;
         }
@@ -460,12 +463,40 @@ public class BroadCasterListActivity extends BaseActivity {
                 @Override
                 public void onClick(View v) {
 
-                    Intent intent = new Intent(BroadCasterListActivity.this, LiveActivity.class);
+                    mRtmChannel.leave(new ResultCallback<Void>() {
+                        @Override
+                        public void onSuccess(Void aVoid) {
+                            Intent intent = new Intent(BroadCasterListActivity.this, LiveActivity.class);
+                            String room = data.getChannelName();
+                            config().setChannelName(room);
+                            config().setBroadcasterName(data.getBroadcasterName() != null ? data.getBroadcasterName() : getString(R.string.guest));
+                            boolean isRecorded = data.getRecorded();
+                            intent.putExtra(io.agora.openlive.Constants.KEY_CLIENT_ROLE, io.agora.rtc.Constants.CLIENT_ROLE_AUDIENCE);
+                            intent.putExtra("isRecorded", isRecorded);
+                            startActivity(intent);
+                            finish();
+                        }
+
+                        @Override
+                        public void onFailure(ErrorInfo errorInfo) {
+                            Intent intent = new Intent(BroadCasterListActivity.this, LiveActivity.class);
+                            String room = data.getChannelName();
+                            config().setChannelName(room);
+                            config().setBroadcasterName(data.getBroadcasterName() != null ? data.getBroadcasterName() : getString(R.string.guest));
+                            boolean isRecorded = data.getRecorded();
+                            intent.putExtra(io.agora.openlive.Constants.KEY_CLIENT_ROLE, io.agora.rtc.Constants.CLIENT_ROLE_AUDIENCE);
+                            intent.putExtra("isRecorded", isRecorded);
+                            startActivity(intent);
+                            finish();
+                        }
+                    });
+
+                    /*Intent intent = new Intent(BroadCasterListActivity.this, LiveActivity.class);
                     String room = data.getChannelName();
                     config().setChannelName(room);
                     config().setBroadcasterName(data.getBroadcasterName() != null ? data.getBroadcasterName() : getString(R.string.guest));
                     intent.putExtra(io.agora.openlive.Constants.KEY_CLIENT_ROLE, io.agora.rtc.Constants.CLIENT_ROLE_AUDIENCE);
-                    startActivity(intent);
+                    startActivity(intent);*/
 
                 }
             });
@@ -497,10 +528,21 @@ public class BroadCasterListActivity extends BaseActivity {
 
         String channelName;
         String broadcasterName;
+        boolean isRecorded;
 
-        public ChannelModel(String channelName, String broadcasterName) {
+
+        public ChannelModel(String channelName, String broadcasterName, boolean isRecorded) {
             this.channelName = channelName;
             this.broadcasterName = broadcasterName;
+            this.isRecorded = isRecorded;
+        }
+
+        public Boolean getRecorded() {
+            return isRecorded;
+        }
+
+        public void setRecorded(boolean recorded) {
+            isRecorded = recorded;
         }
 
         public String getChannelName() {
