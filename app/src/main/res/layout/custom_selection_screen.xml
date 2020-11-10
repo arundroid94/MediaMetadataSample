@@ -99,7 +99,7 @@
                     android:layout_marginStart="10dp"
                     android:layout_marginLeft="10dp"
                     android:lines="1"
-                    android:text="Recorded Video"
+                    android:text="Recorded Audio"
                     android:textAppearance="?android:attr/textAppearanceLarge"
                     android:textSize="17sp"
                     android:textStyle="bold" />

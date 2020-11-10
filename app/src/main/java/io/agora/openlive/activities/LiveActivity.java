@@ -288,7 +288,8 @@ public class LiveActivity extends RtcBaseActivity {
                     config.audioBitrate = 48;
                     config.audioChannels = 1;
 
-                    final String urlPath = "http://content.jwplatform.com/manifests/vM7nH0Kl.m3u8";//working
+                    //final String urlPath = "http://content.jwplatform.com/manifests/vM7nH0Kl.m3u8";//working
+                    final String urlPath = "http://radios-ec.cdn.nedmedia.io/radios/ec-alfa.m3u8";//working
                     //final String urlPath = "https://agoracr.s3.ap-south-1.amazonaws.com/cloudVideo07/28b0899f20463ea4f72dfc910c633865_agoracr.m3u8";//working
                     int a = rtcEngine().addInjectStreamUrl(urlPath, new LiveInjectStreamConfig());
                     Log.e("addInjectStreamUrl", "-- " + a);
