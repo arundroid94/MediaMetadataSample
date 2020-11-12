@@ -49,7 +49,7 @@ public abstract class RtcBaseActivity extends BaseActivity implements EventHandl
         }
 
         rtcEngine().registerMediaMetadataObserver(this, VIDEO_METADATA);
-        rtcEngine().joinChannel(token, config().getChannelName(), "", 0);
+        rtcEngine().joinChannel(token, config().getChannelName(), "", 123);
     }
 
     protected SurfaceView prepareRtcVideo(int uid, boolean local) {

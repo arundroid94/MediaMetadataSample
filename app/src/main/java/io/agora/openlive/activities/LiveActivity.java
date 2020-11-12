@@ -214,14 +214,16 @@ public class LiveActivity extends RtcBaseActivity {
     @Override
     public void onJoinChannelSuccess(String channel, final int uid, int elapsed) {
 
-        /*runOnUiThread(new Runnable() {
+        runOnUiThread(new Runnable() {
             @Override
             public void run() {
 
-                if (isBroadcaster && isRecorded) {
+                /*if (isBroadcaster && isRecorded) {
 
-                    String fb_url = "rtmps://live-api-s.facebook.com:443/rtmp/3655315151170641?s_bl=1&s_psm=1&s_sc=3655315207837302&s_sw=0&s_vt=api-s&a=Abx9QQkdpCjhoq_J";
-                    String youtube_url = "rtmp://a.rtmp.youtube.com/live2/528v-3bfd-qh3z-ze67-81z5";
+                    //String fb_url = "rtmps://live-api-s.facebook.com:443/rtmp/3655315151170641?s_bl=1&s_psm=1&s_sc=3655315207837302&s_sw=0&s_vt=api-s&a=Abx9QQkdpCjhoq_J";
+                    //String youtube_url = "rtmp://a.rtmp.youtube.com/live2/528v-3bfd-qh3z-ze67-81z5";
+
+                    String fb_url = "rtmps://live-api-s.facebook.com:443/rtmp/3790842207617934?s_bl=1&s_hv=0&s_psm=1&s_sc=3790842257617929&s_sw=0&s_vt=api-s&a=Abyl_4AWz90Kpm_z";
 
                     // CDN transcoding settings.
                     LiveTranscoding config = new LiveTranscoding();
@@ -237,7 +239,7 @@ public class LiveActivity extends RtcBaseActivity {
                     // Video framerate of the video (fps). The default value is 15. Agora adjusts all values over 30 to 30.
                     config.videoFramerate = 15;
                     // If userCount > 1，set the layout for each user with transcodingUser.
-                    config.userCount = 1;
+                    config.userCount = 2;
                     // Video codec profile. Choose to set as Baseline (66), Main (77) or High (100). If you set this parameter to other values, Agora adjusts it to the default value 100.
                     config.videoCodecProfile = HIGH;
 
@@ -245,13 +247,27 @@ public class LiveActivity extends RtcBaseActivity {
                     LiveTranscoding transcoding = new LiveTranscoding();
                     LiveTranscoding.TranscodingUser user = new LiveTranscoding.TranscodingUser();
                     // The uid must be identical to the uid used in joinChannel().
-                    user.uid = uid;
-                    transcoding.addUser(user);
+                    user.uid = 123;
                     user.x = 0;
                     user.audioChannel = 0;
                     user.y = 0;
-                    user.width = 640;
-                    user.height = 720;
+                    user.width = 180;
+                    user.height = 640;
+                    user.zOrder = 1;
+                    user.alpha = (float) 1.0;
+                    transcoding.addUser(user);
+
+                    LiveTranscoding.TranscodingUser user2 = new LiveTranscoding.TranscodingUser();
+                    // The uid must be identical to the uid used in joinChannel().
+                    user2.uid = 456;
+                    user2.x = 180;
+                    user2.audioChannel = 0;
+                    user2.y = 0;
+                    user2.width = 180;
+                    user2.height = 640;
+                    user2.zOrder = 1;
+                    user2.alpha = (float) 1.0;
+                    transcoding.addUser(user2);
 
                     Log.i("StreamTest", " ---- uid - " + uid);
 
@@ -262,17 +278,19 @@ public class LiveActivity extends RtcBaseActivity {
 
                     // Adds a URL to which the host pushes a stream. Set the transcodingEnabled parameter as true to enable the transcoding service. Once transcoding is enabled, you need to set the live transcoding configurations by calling the setLiveTranscoding method. We do not recommend transcoding in the case of a single host.
                     int addPublishStream = rtcEngine().addPublishStreamUrl(fb_url, true);
-                    int addPublishStream2 = rtcEngine().addPublishStreamUrl(youtube_url, true);
+                    //int addPublishStream2 = rtcEngine().addPublishStreamUrl(youtube_url, true);
 
                     Log.i("StreamTest", " ---- addPublishStreamUrl - " + addPublishStream);
-                    Log.i("StreamTest", " ---- addPublishStreamUrl02 - " + addPublishStream2);
+                    //Log.i("StreamTest", " ---- addPublishStreamUrl02 - " + addPublishStream2);
 
-                }
+                }*/
 
             }
-        });*/
+        });
 
-        runOnUiThread(new Runnable() {
+
+        //Inject online media stream
+        /*runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 if (isBroadcaster && isRecorded) {
@@ -295,7 +313,7 @@ public class LiveActivity extends RtcBaseActivity {
                     Log.e("addInjectStreamUrl", "-- " + a);
                 }
             }
-        });
+        });*/
 
     }
 
@@ -303,6 +321,75 @@ public class LiveActivity extends RtcBaseActivity {
     public void onUserJoined(int uid, int elapsed) {
         // Do nothing at the moment
         Log.e("addInjectStreamUrl", "uid -- onUserJoined -- " + uid);
+
+        if (isBroadcaster && isRecorded) {
+
+            //String fb_url = "rtmps://live-api-s.facebook.com:443/rtmp/3655315151170641?s_bl=1&s_psm=1&s_sc=3655315207837302&s_sw=0&s_vt=api-s&a=Abx9QQkdpCjhoq_J";
+            //String youtube_url = "rtmp://a.rtmp.youtube.com/live2/528v-3bfd-qh3z-ze67-81z5";
+
+            String fb_url = "rtmps://live-api-s.facebook.com:443/rtmp/3793620887340066?s_bl=1&s_hv=0&s_psm=1&s_sc=3793620930673395&s_sw=0&s_vt=api-s&a=AbzEXhC8pYlfjMpW";
+            //String fb_url = "rtmp://a.rtmp.youtube.com/live2/5q4q-aqpw-4m6j-dvhc-ev1j";
+
+            // CDN transcoding settings.
+            LiveTranscoding config = new LiveTranscoding();
+            config.audioSampleRate = TYPE_44100;
+            config.audioChannels = 2;
+            config.audioBitrate = 48;
+            // Width of the video (px). The default value is 360.
+            config.width = 360;
+            // Height of the video (px). The default value is 640.
+            config.height = 640;
+            // Video bitrate of the video (Kbps). The default value is 400.
+            config.videoBitrate = 400;
+            // Video framerate of the video (fps). The default value is 15. Agora adjusts all values over 30 to 30.
+            config.videoFramerate = 15;
+            // If userCount > 1，set the layout for each user with transcodingUser.
+            config.userCount = 2;
+            // Video codec profile. Choose to set as Baseline (66), Main (77) or High (100). If you set this parameter to other values, Agora adjusts it to the default value 100.
+            config.videoCodecProfile = HIGH;
+
+            // Sets the output layout for each user.
+            LiveTranscoding transcoding = new LiveTranscoding();
+            LiveTranscoding.TranscodingUser user = new LiveTranscoding.TranscodingUser();
+            // The uid must be identical to the uid used in joinChannel().
+            user.uid = 123;
+            user.x = 0;
+            user.audioChannel = 0;
+            user.y = 0;
+            user.width = 360;
+            user.height = 640;
+            user.zOrder = 1;
+            user.alpha = (float) 1.0;
+            transcoding.addUser(user);
+
+            LiveTranscoding.TranscodingUser user2 = new LiveTranscoding.TranscodingUser();
+            // The uid must be identical to the uid used in joinChannel().
+            user2.uid = 456;
+            user2.x = 0;
+            user2.audioChannel = 0;
+            user2.y = 0;
+            user2.width = 0;
+            user2.height = 0;
+            user2.zOrder = 1;
+            user2.alpha = (float) 1.0;
+            transcoding.addUser(user2);
+
+            Log.i("StreamTest", " ---- uid - " + uid);
+
+            // CDN transcoding settings when using transcoding.
+            int setLiveTranscoding = rtcEngine().setLiveTranscoding(transcoding);
+            Log.i("StreamTest", " ---- setLiveTranscoding - " + setLiveTranscoding);
+
+            // Adds a URL to which the host pushes a stream. Set the transcodingEnabled parameter as true to enable the transcoding service. Once transcoding is enabled, you need to set the live transcoding configurations by calling the setLiveTranscoding method. We do not recommend transcoding in the case of a single host.
+            int addPublishStream = rtcEngine().addPublishStreamUrl(fb_url, true);
+            //int addPublishStream2 = rtcEngine().addPublishStreamUrl(youtube_url, true);
+
+            Log.i("StreamTest", " ---- addPublishStreamUrl - " + addPublishStream);
+            //Log.i("StreamTest", " ---- addPublishStreamUrl02 - " + addPublishStream2);
+
+        }
+
+
     }
 
     @Override
